@@ -15,6 +15,8 @@ if [ "$LABEL" == "" ] || [ "$RET" != "0" ]; then
     exit 1
 fi
 
+zenity --info --text="Введите PIN пользователя"
+
 PIN=$(zenity --password )
 RET=$?
 if [ "$PIN" == "" ] || [ "$RET" != "0" ]; then
@@ -35,14 +37,59 @@ fi
 zenity --info --text="$OUT"
 
 USER=$(zenity --entry --text="ФИО пользователя" )
-if [ "$LABEL" == "" ] || [ "$RET" != "0" ]; then
+RET=$?
+if [ "$USER" == "" ] || [ "$RET" != "0" ]; then
     zenity --error --text="ввод отклонен"
     exit 4
 fi
 
-OUT=$(openssl req -engine pkcs11 -keyform engine -key 12346578 \
-    -new -out client.req \
-    -subj "/S=buryatia/O=baikalbank/CN=$USER" 2>/dev/stdout)
+zenity --info --text="Выберите имя для запроса"
+
+CSR=$(zenity --file-selection --confirm-overwrite \
+    --file-filter="*.req" --filename "client.req" --save)
+RET=$?
+if [ "$CSR" == "" ] || [ "$RET" != "0" ]; then
+    zenity --error --text="ввод отклонен"
+    exit 4
+fi
+
+
+TMP=$(mktemp --suffix=.cnf)
+
+echo "
+openssl_conf = openssl_def
+
+[openssl_def]
+engines = engine_section
+
+[engine_section]
+pkcs11 = pkcs11_section
+
+[pkcs11_section]
+engine_id = pkcs11
+dynamic_path = /usr/lib/engines/engine_pkcs11.so
+MODULE_PATH = /usr/lib/libeToken.so
+init = 0
+
+
+[ req ]
+default_bits           = 2048
+distinguished_name     = req_distinguished_name
+prompt                 = no
+
+[ req_distinguished_name ]
+C                      = RU
+ST                     = buryatia
+L                      = ulan-ude
+O                      = baikalbank
+CN                     = $USER
+emailAddress           = $LABEL
+" > $TMP
+
+OUT=$(echo $PIN | (openssl req -config $TMP -engine pkcs11 -keyform engine \
+    -key 12345678 -new -out "$CSR" \
+    -passin stdin \
+    -subj "/C=RU/ST=buryatia/L=ulan-ude/O=baikalbank/CN=$USER" 2>/dev/stdout))
 RET=$?
 if [ "$OUT" == "" ] || [ "$RET" != "0" ]; then
     zenity --error --text="openssl-req: $OUT"

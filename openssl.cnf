@@ -1,0 +1,33 @@
+openssl_conf = openssl_def
+
+[openssl_def]
+engines = engine_section
+
+[engine_section]
+pkcs11 = pkcs11_section
+
+[pkcs11_section]
+engine_id = pkcs11
+dynamic_path = /usr/lib/engines/engine_pkcs11.so
+MODULE_PATH = /usr/lib/libeToken.so
+init = 0
+
+
+[ req ]
+default_bits           = 2048
+distinguished_name     = req_distinguished_name
+#attributes             = req_attributes
+prompt                 = no
+#output_password        = mypass
+
+[ req_distinguished_name ]
+C                      = RU
+ST                     = buryatia
+L                      = ulan-ude
+O                      = baikalbank
+OU                     = Organizational Unit Name
+CN                     = Common Name
+emailAddress           = test@email.address
+
+
+
